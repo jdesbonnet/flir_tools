@@ -25,8 +25,7 @@ static void usage (char *cmd)
 {
 	printf ("%s [options] <spi-device>\n", cmd);
 	printf ("Options:\n");
-	printf ("  -a <freq>: set anti-alias filter cutoff frequency (Hz).\n");
-	printf ("        Allowed values: 800, 400, 200, 50\n");
+	printf ("  -d <debug_level>: debug level: 0=no debug (default), 9=most verbose\n");
 }
 
 static void version () 
