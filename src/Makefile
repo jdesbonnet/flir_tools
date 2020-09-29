@@ -1,7 +1,7 @@
 CC=gcc
 DEPS=-lrt -lm
-SOURCES= flir_tool.c
-EXECUTABLE= flir_tool
+SOURCES= flir2temp.c
+EXECUTABLE= flir2temp
 
 $(EXECUTABLE): $(SOURCES) $(DEPS)
 	$(CC) -o $@ $^

@@ -42,7 +42,7 @@ echo "R1=$R1 R2=$R2 B=$B O=$O F=$F"
 
 CONSTANTS="-C R1=$R1 -C R2=$R2 -C B=$B -C O=$O -C F=$F"
 # Use imagemagick convert to convert the TIFF file output from exiftool into
-# PGM which is easy for the flir_tool.c to read.
+# PGM which is easy for the flir2temp.c to read.
 exiftool "$1" -b -RawThermalImage | convert - pgm:- > t.pgm
-exiftool "$1" -b -RawThermalImage | convert - pgm:- | ./flir_tool -u C -m 100 -f pgm_ascii $CONSTANTS  > $output_image
+exiftool "$1" -b -RawThermalImage | convert - pgm:- | ./flir2temp -u C -m 100 -f pgm_ascii $CONSTANTS  > $output_image
 
