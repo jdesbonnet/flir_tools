@@ -6,13 +6,15 @@
 #include <math.h>
 
 /**
- * Convert raw radiometric data from FLIR E4/E8 thermal camera
- * into 16 bit grey where value = temperature_C*10;
- * Get raw radiomatric data like so:
+ * Convert raw radiometric data from FLIR Ex/A320 thermal camera. Input is 
+ * expected in stdin and in 16 bit PGM format. The tool also requires
+ * radiometric constants R1, R2, B, O, F to be supplied.
+ *
  *
  * Reference: http://u88.n24.queensu.ca/exiftool/forum/index.php/topic,4898.msg23944.html#msg23944
  *
- * Dependencies: exiftools, ImageMagick
+ *
+ * TODO: fix PGM header parsing
  *
  * Joe Desbonnet 2020-09-24.
  */
@@ -75,7 +77,7 @@ int main (int argc, char **argv) {
 
 
 	double T,S,C;
-	double multiplier = 1;
+	double multiplier = 100;
 	int debug_level = 1;
 
 
@@ -83,7 +85,7 @@ int main (int argc, char **argv) {
 
 	// Parse command line arguments. See usage() for details.
 	int c;
-	while ((c = getopt(argc, argv, "C:b:d:f:g:hio:qs:tv")) != -1) {
+	while ((c = getopt(argc, argv, "b:C:d:f:g:him:o:qs:tu:v")) != -1) {
 		switch(c) {
 
 			case 'C': {
@@ -158,11 +160,20 @@ int main (int argc, char **argv) {
 		}
 	}
 
+	fprintf (stderr,"unit=%d multiplier=%f\n", unit, multiplier);
+
+
 	// Read PGM header of raw radiometric file
 	int pgm_width, pgm_height, pgm_maxval;
 
+
+	// TODO problems with header parsing
+	// hardcode for the moment
+	pgm_width=320; pgm_height=240; pgm_maxval=65535;
+
+/*
 	while(getc(stdin) != '\n'); // skip file magic number ('P5')
-   
+
 	// ignore comment lines
 	while (getc(stdin) == '#') {
 		while (getc(stdin) != '\n');          
@@ -171,25 +182,41 @@ int main (int argc, char **argv) {
 	fscanf(stdin,"%d", &pgm_width);
 	fscanf(stdin,"%d", &pgm_height);
 	fscanf(stdin,"%d", &pgm_maxval);
+*/
+
+	// skip header
+	int j = 0;
+	while (j < 3) {
+		if (getc(stdin)=='n') {
+			j++;
+		}
+	}
 
 
-	// Output header
+	// Output file header
 	if (format == FORMAT_PGM) {
-		fprintf (stdout,"P2 %d %d\n%d", pgm_width, pgm_height, pgm_maxval);
+		// binary PGM
+		fprintf (stdout,"P5 %d %d\n%d\n", pgm_width, pgm_height, pgm_maxval);
 	} else if (format == FORMAT_PGM_ASCII) {
-		fprintf (stdout,"P5 %d %d\n%d", pgm_width, pgm_height, pgm_maxval);
+		// ascii PGM
+		fprintf (stdout,"P2 %d %d\n%d", pgm_width, pgm_height, pgm_maxval);
 	}
 
 
 
-	int i = 0,vi;
+	int i = 0;
+	int voint;
 	double vo;
 
 	while (!feof(stdin)) {
 
 		fread (&v, sizeof v, 1, stdin);
-		//adc = ((v&0xff)<<8)  | (v>>8);
-		adc = v;
+
+		// convert from intel/ARM little endian to big endian
+		// TODO: make this code architecture neutral (assuming 
+		// little endian arch)
+		adc = ((v&0xff)<<8)  | (v>>8);
+
 
 		S = (double)adc;
 
@@ -197,37 +224,43 @@ int main (int argc, char **argv) {
 		// Q: what about F?
 		T = B / log(R1/(R2*(S+O))+1);
 
+		//fprintf (stderr, "T=%f\n",T);
+
 		switch (unit) {
+
 			case UNIT_K:
 			vo = T;
 			break;
+
 			case UNIT_C:
-			vo = T = 273.15;
+			vo = T - 273.15;
 			break;
+
 		}
+
 		vo *= multiplier;
 
+		// Limit to 16 bit unsigned integer
 		if (vo > 65535) {
 			vo = 65535;
 		} else if (vo < 0) {
 			vo = 0;
 		}
 
+		voint = (int)vo;
+
 		// NetPBM format uses bigendian ordering
 		// Ref https://en.wikipedia.org/wiki/Netpbm
-		//fputc (v>>8,stdout);
-		//fputc (v&0xff,stdout);
-
 		if (format == FORMAT_PGM_ASCII) {
+			// LF at end of every line
 			if (i%320==0) {
 				fprintf(stdout,"\n");
 			}
-			fprintf (stdout, "%d ", (int)(vo));
+			fprintf (stdout, "%d ", voint);
 		} else {
-			// big endian order
-			vi = (int)vo;
-			fputc ((vi>>8) & 0xff, stdout);
-			fputc (vi & 0xff, stdout);
+			// 16 bits big endian order
+			fputc ((voint>>8) & 0xff, stdout);
+			fputc (voint & 0xff, stdout);
 		}
 		i++;
 
