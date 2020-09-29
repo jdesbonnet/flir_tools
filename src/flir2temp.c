@@ -222,7 +222,8 @@ int main (int argc, char **argv) {
 
 		// Temperature in K
 		// Q: what about F?
-		T = B / log(R1/(R2*(S+O))+1);
+		//T = B / log(R1/(R2*(S+O))+1);
+		T = B / log(R1/(R2*(S+O))+F);
 
 		//fprintf (stderr, "T=%f\n",T);
 
