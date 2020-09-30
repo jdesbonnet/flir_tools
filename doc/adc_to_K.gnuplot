@@ -24,7 +24,7 @@ set xlabel "ADC value (16 bit unsigned)"
 set ylabel "temperature K"
 set xrange [0:65535]
 
-set terminal pngcairo size 1024,800
+set terminal pngcairo size 1024,550
 set output "adc_to_K.png"
 plot Ex_T(x) linewidth 2 title 'Flir E4/E8', A320_T(x) linewidth 2 title 'Flir A320'
 
