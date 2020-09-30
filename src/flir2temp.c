@@ -1,10 +1,3 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <math.h>
-
 /**
  * Convert raw radiometric data from FLIR Ex/A320 thermal camera. Input is 
  * expected in stdin and in 16 bit PGM format. The tool also requires
@@ -20,6 +13,15 @@
  */
 
 
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <math.h>
+
+#include "pnm.h"
+
 #define UNIT_C 1
 #define UNIT_K 2
 
@@ -31,11 +33,18 @@
  */ 
 static void usage (char *cmd) 
 {
-	printf ("%s [options] <spi-device>\n", cmd);
+	printf ("%s [options] \n", cmd);
+
+	printf ("Convert raw radiometric data from FLIR file into temperature values.\n");
+	printf ("Input is in the form of a 16 bit PGM file (type P2 or P5).\n");
+	printf ("Output is in the form of a 16 bit PGM file (type P2 or P5 depending on -f option).\n");
+	printf ("\n");
+	printf ("Assumptions: 95pc emissivity.\n");
+	printf ("\n");
 	printf ("Options:\n");
 	printf ("  -d <debug_level>: debug level: 0=no debug (default), 9=most verbose\n");
-	printf ("  -C <key>=<value>: set constant, key can be one of R1,R2,B,O,F. Example -C R2=123\n");
-	printf ("  -f <format>: output format, one of pgm or pgm_ascii. Default pgm. \n");
+	printf ("  -C <key>=<value>: set constant, key can be one of R1, R2, B, O, F. Example -C R2=123\n");
+	printf ("  -f <format>: output format, one of pgm (P5 type) or pgm_ascii (P2 type). Default pgm. \n");
 	printf ("  -u <unit>: output unit, one of C (Celsius) K (Kelvin). Default K.\n");
 	printf ("  -m <n>: multiplier. Output is value (16 bit unsigned int) is value * multiplier.\n");
 	printf ("          Example: with -u C -m 100 31.4C would be represented by value 3140\n");
@@ -44,6 +53,7 @@ static void usage (char *cmd)
 static void version () 
 {
 }
+
 
 int main (int argc, char **argv) {
 
@@ -82,6 +92,11 @@ int main (int argc, char **argv) {
 
 
 	int fd;
+
+	if (argc < 2) {
+		usage(argv[0]);
+		exit(EXIT_SUCCESS);
+	}
 
 	// Parse command line arguments. See usage() for details.
 	int c;
@@ -160,37 +175,22 @@ int main (int argc, char **argv) {
 		}
 	}
 
-	fprintf (stderr,"unit=%d multiplier=%f\n", unit, multiplier);
+
+	// TODO: throw error if not all constants received
 
 
-	// Read PGM header of raw radiometric file
-	int pgm_width, pgm_height, pgm_maxval;
-
-
-	// TODO problems with header parsing
-	// hardcode for the moment
-	pgm_width=320; pgm_height=240; pgm_maxval=65535;
-
-/*
-	while(getc(stdin) != '\n'); // skip file magic number ('P5')
-
-	// ignore comment lines
-	while (getc(stdin) == '#') {
-		while (getc(stdin) != '\n');          
+	// Parse PGM header
+	int pgm_format = pnm_magic(stdin);
+	if ( ! (pgm_format==2 || pgm_format==5) ) {
+		fprintf(stderr,"input file not in PGM format (PNM type P2 or P5)\n");
+		return 0;
 	}
-	fseek(stdin, -1, SEEK_CUR);
-	fscanf(stdin,"%d", &pgm_width);
-	fscanf(stdin,"%d", &pgm_height);
-	fscanf(stdin,"%d", &pgm_maxval);
-*/
+	int pgm_width = pnm_value(stdin);
+	int pgm_height = pnm_value(stdin);
+	int pgm_maxval = pnm_value(stdin);
+	pnm_endheader(stdin);
 
-	// skip header
-	int j = 0;
-	while (j < 3) {
-		if (getc(stdin)=='n') {
-			j++;
-		}
-	}
+	//fprintf (stderr,"dim: %d %d %d\n", pgm_width, pgm_height, pgm_maxval);
 
 
 	// Output file header
@@ -201,7 +201,6 @@ int main (int argc, char **argv) {
 		// ascii PGM
 		fprintf (stdout,"P2 %d %d\n%d", pgm_width, pgm_height, pgm_maxval);
 	}
-
 
 
 	int i = 0;
@@ -215,7 +214,12 @@ int main (int argc, char **argv) {
 		// convert from intel/ARM little endian to big endian
 		// TODO: make this code architecture neutral (assuming 
 		// little endian arch)
+
+		// if reading PNM:
 		adc = ((v&0xff)<<8)  | (v>>8);
+		
+		// if reading from imagemagic convert raw then no need to endian convert
+		//adc = v;
 
 
 		S = (double)adc;
