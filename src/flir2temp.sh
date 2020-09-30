@@ -8,7 +8,7 @@
 
 input_image=$1
 base_name=${input_image%.*}
-output_image="${base_name}.C.pgm"
+output_image="${base_name}.pgm"
 
 
 echo "base_name=$base_name"
