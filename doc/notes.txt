@@ -1,0 +1,11 @@
+
+
+appending images side by side:
+
+montage chart2.png chart1.png  -tile 2x1 -geometry 640x480 t.png
+
+
+converting binary PGM to ascii PGM:
+
+convert -compress None binary.pgm ascii.pgm
+
